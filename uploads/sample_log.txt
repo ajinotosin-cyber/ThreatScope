@@ -1,0 +1,4 @@
+Failed login admin
+Nmap scan detected
+Malware detected
+sudo access attempt

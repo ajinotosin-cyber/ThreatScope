@@ -1,0 +1,15 @@
+streamlit
+pandas
+plotly
+requests
+python-dotenv
+ipwhois
+tldextract
+vt-py
+yara-python
+scikit-learn
+folium
+streamlit-folium
+numpy
+geoip2
+ipaddress
