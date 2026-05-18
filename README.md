@@ -54,21 +54,6 @@ files for threat investigation.
 
 ---
 
-## Project Structure
-ThreatScope/
-│── app.py
-│── threat_lookup.py
-│── malware_scan.py
-│── log_parser.py
-│── yara_engine.py
-│── mitre_mapper.py
-│── requirements.txt
-│── README.md
-│── uploads/
-│── models/
-│── rules/
-
-
 Author
 
 Olawatosin Deborah Ajinomisan
