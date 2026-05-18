@@ -1,6 +1,10 @@
 ThreatScope
 
-**ThreatScope** is an interactive cybersecurity threat intelligence and IOC investigation dashboard built with **Python** and **Streamlit**. It enables analysts to investigate IP addresses, detect threats, visualize attack patterns, and monitor security events through a modern SOC-style interface.
+**ThreatScope** is an interactive cybersecurity threat intelligence and IOC investigation dashboard built with **Python** and **Streamlit**. It enables analysts to investigate IP addresses, detect threats, visualize attack patterns, and monitor security events through a modern SOC-style interface. 
+
+**Live Application**
+https://threatscope-zfdrvh6mdqrzpc5ut3hyjs.streamlit.app/
+
 
 ## Features
 
