@@ -56,54 +56,37 @@ if "alerts" not in st.session_state:
 
 def update_dashboard(threat, severity):
 
-
-
     st.session_state.alerts += 1
-
-
 
     if severity == "Critical":
         st.session_state.critical += 1
 
-
-
     if severity in ["Critical","High"]:
         st.session_state.high += 1
 
-
-
-    st.session_state.vulns += 1
-
-
+    if threat != "Safe":
+        st.session_state.vulns += 1
 
     if threat in st.session_state.threat_data:
         st.session_state.threat_data[threat] += 1
 
-
-
     time = datetime.now().strftime("%H:%M:%S")
-
-
 
     st.session_state.feed.insert(
         0,
         f"{time} - {threat} detected"
     )
 
-
-
     st.session_state.incidents.insert(
         0,
         f"{severity} {threat}"
     )
 
-
-
     st.session_state.soc.insert(
         0,
         f"{time} IOC analysed"
     )
-
+    
 # ---------------------------------------------
 # CSS
 # ---------------------------------------------
