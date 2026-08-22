@@ -228,6 +228,28 @@ silently doing nothing.
 
 ---
 
+## UI notes
+
+The interface is a native Streamlit **dark theme** (`.streamlit/config.toml`),
+matched exactly to ThreatScope's existing color palette, plus a thin CSS
+layer in `app.py` for the masthead, metric cards, severity/status pills,
+and the compact Recent Investigations row list. `.streamlit/config.toml`
+is picked up automatically by Streamlit Cloud — no extra deployment step
+is needed for it.
+
+**Sidebar toggle fix:** an earlier CSS revision included a blanket
+`header{ visibility:hidden; }` rule intended to hide Streamlit's default
+toolbar. That rule also hid `[data-testid="stExpandSidebarButton"]` —
+the control Streamlit renders inside the header to re-open a collapsed
+sidebar — which meant a user who collapsed the sidebar had no way to get
+it back. The current CSS instead targets only the specific decorative
+elements (`#MainMenu`, `[data-testid="stAppDeployButton"]`) and explicitly
+forces the expand/collapse controls to stay visible, so the sidebar can
+always be reopened. `tests/test_ui_refinement.py` has a regression test
+for this.
+
+---
+
 ## Limitations
 
 - **Single, unauthenticated app** — anyone with the URL can use it; there

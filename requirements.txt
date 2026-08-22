@@ -1,7 +1,7 @@
 # Runtime dependencies for the Streamlit app (app.py and everything it
 # imports). Kept to what is genuinely used -- see README "Requirements
 # audit" for what was removed and why.
-streamlit
+streamlit>=1.32
 pandas
 plotly
 requests

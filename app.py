@@ -1,3 +1,6 @@
+import json
+from datetime import datetime
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -26,7 +29,9 @@ db.init_db()
 PROVIDERS = load_provider_config()
 
 # ---------------------------------------------------------------------------
-# CSS — dark SOC aesthetic (kept from the original identity, cleaned up)
+# CSS — dark SOC aesthetic (same palette/identity, tightened for an
+# enterprise console feel). See README "UI notes" for the sidebar-toggle
+# fix explanation.
 # ---------------------------------------------------------------------------
 
 st.markdown("""
@@ -36,52 +41,156 @@ st.markdown("""
         radial-gradient(circle at top left,#0D1B3D 0%,transparent 35%),
         radial-gradient(circle at top right,#071327 0%,transparent 30%),
         #050A18;
-    color:white;
-    font-family:'Segoe UI';
+    color:#E7EEF9;
+    font-family:'Segoe UI',sans-serif;
 }
-header{ visibility:hidden; }
-#MainMenu{ visibility:hidden; }
-.block-container{ padding-top:1.5rem; padding-left:2rem; padding-right:2rem; }
+.block-container{ padding-top:1.1rem; padding-left:2rem; padding-right:2rem; max-width:1400px; }
 
+/* --------------------------------------------------------------------
+   HEADER / SIDEBAR TOGGLE — DO NOT hide [data-testid="stHeader"] or the
+   bare <header> element. That element is where Streamlit renders the
+   sidebar re-open control once the sidebar is collapsed; hiding it with
+   visibility:hidden previously trapped users with no way back in. Instead
+   we blend the header into the theme and only remove the decorative
+   "Deploy" button and the hamburger/main menu, while explicitly forcing
+   the expand/collapse controls to stay visible and on-brand.
+   -------------------------------------------------------------------- */
+[data-testid="stHeader"]{
+    background:transparent;
+    height:3rem;
+}
+#MainMenu{ visibility:hidden; }
+[data-testid="stAppDeployButton"]{ display:none; }
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"]{
+    visibility:visible !important;
+    opacity:1 !important;
+    display:flex !important;
+}
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="collapsedControl"] svg{
+    fill:#4EA8FF !important;
+}
+
+section[data-testid="stSidebar"]{ background:#050A18; border-right:1px solid #16365D; }
+[data-testid="stSidebarContent"]{ padding-top:0.5rem; }
+
+/* --------------------------------------------------------------------
+   TYPOGRAPHY HIERARCHY
+   -------------------------------------------------------------------- */
 .main-title{
-    font-size:46px; font-weight:800;
-    background: linear-gradient(90deg, white, #4EA8FF);
+    font-size:30px; font-weight:800; line-height:1.15;
+    background: linear-gradient(90deg, #FFFFFF, #4EA8FF);
     -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     margin-bottom:0;
 }
-.sub-title{ font-size:18px; color:#67B8FF; margin-bottom:20px; }
+.sub-title{ font-size:13px; color:#7C9BC7; margin-bottom:2px; font-weight:500; }
+.eyebrow{
+    font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase;
+    color:#4EA8FF; margin:14px 0 2px 0;
+}
+.section-title{ font-size:19px; font-weight:700; color:#EAF2FF; margin:0 0 2px 0; }
+.section-subtitle{ font-size:13px; color:#7C9BC7; margin-bottom:12px; }
 
+/* --------------------------------------------------------------------
+   METRIC CARDS — restrained, consistent height, subtle depth only
+   -------------------------------------------------------------------- */
 .metric-card{
-    background:#0B1325; padding:22px; border-radius:16px;
-    border:1px solid #16365D; box-shadow:0 0 20px rgba(0,150,255,.10);
+    background:#0B1325; padding:16px 18px; border-radius:10px;
+    border:1px solid #16365D;
 }
-.metric-value{ font-size:36px; font-weight:800; color:white; }
-.metric-label{ font-size:14px; color:#8FB6E8; }
+.metric-label{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:#7C9BC7; margin-bottom:6px;
+}
+.metric-value{ font-size:28px; font-weight:800; color:#F2F6FC; line-height:1; }
 
+/* --------------------------------------------------------------------
+   PANELS (chart cards, grouped content)
+   -------------------------------------------------------------------- */
+.panel{ background:#081122; padding:14px 16px; border-radius:10px; border:1px solid #16365D; }
+[class*="st-key-panel-"]{ background:#081122; border:1px solid #16365D; border-radius:10px; padding:10px 14px 4px 14px; }
+
+/* --------------------------------------------------------------------
+   PILL / BADGE SYSTEM — replaces oversized inline colored text
+   -------------------------------------------------------------------- */
+.pill{
+    display:inline-block; padding:2px 9px; border-radius:999px;
+    font-size:11px; font-weight:700; letter-spacing:.02em; line-height:1.7;
+    white-space:nowrap;
+}
+.pill-critical{ background:rgba(255,60,90,.14); color:#FF8092; border:1px solid rgba(255,60,90,.35); }
+.pill-medium{ background:rgba(255,176,32,.14); color:#FFC55C; border:1px solid rgba(255,176,32,.35); }
+.pill-low{ background:rgba(51,209,122,.14); color:#5BE39B; border:1px solid rgba(51,209,122,.35); }
+.pill-ok{ background:rgba(51,209,122,.14); color:#5BE39B; border:1px solid rgba(51,209,122,.35); }
+.pill-warn{ background:rgba(255,176,32,.14); color:#FFC55C; border:1px solid rgba(255,176,32,.35); }
+.pill-bad{ background:rgba(255,60,90,.14); color:#FF8092; border:1px solid rgba(255,60,90,.35); }
+.pill-muted{ background:rgba(124,155,199,.12); color:#9FC3F2; border:1px solid rgba(124,155,199,.28); }
+
+/* --------------------------------------------------------------------
+   RECENT INVESTIGATIONS — compact row list, not cards
+   -------------------------------------------------------------------- */
+.row-header{
+    font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    color:#5B7BA6; padding:4px 4px 8px 4px; border-bottom:1px solid #16365D;
+}
+.row-cell{ font-size:13px; padding:7px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row-cell-strong{ color:#EAF2FF; font-weight:600; }
+.row-cell-muted{ color:#8DA9CE; }
+div[class*="st-key-row-"]{ border-bottom:1px solid #0F2038; }
+div[class*="st-key-row-"]:hover{ background:rgba(78,168,255,.035); }
+div[class*="st-key-row-"] button{
+    padding:2px 10px !important; font-size:12px !important; min-height:26px !important;
+    background:transparent !important; border:1px solid #2B5C9A !important; color:#8FC1FF !important;
+}
+
+/* --------------------------------------------------------------------
+   ALERT / FINDING BOXES (Log Analysis)
+   -------------------------------------------------------------------- */
 .alert-box{
-    background:#081122; padding:12px; border-left:4px solid #FF3C5A;
-    margin-bottom:8px; border-radius:10px; font-size:14px;
+    background:#081122; padding:10px 12px; border-left:3px solid #FF3C5A;
+    margin-bottom:6px; border-radius:6px; font-size:13px; color:#C9D9F2;
 }
-.panel{
-    background:#081122; padding:18px; border-radius:16px; border:1px solid #16365D;
-}
-.status-ok{ color:#33D17A; font-weight:700; }
-.status-warn{ color:#FFB020; font-weight:700; }
-.status-bad{ color:#FF3C5A; font-weight:700; }
-.status-muted{ color:#8FB6E8; font-weight:600; }
+.alert-box code{ color:#9FC3F2; font-size:12px; }
+.alert-box i{ color:#7C9BC7; font-size:12px; }
 
-.footer{ text-align:center; color:#7DBFFF; margin-top:40px; font-size:13px; }
+/* --------------------------------------------------------------------
+   STATUS STRIP (provider/system status, compact single line, wraps)
+   -------------------------------------------------------------------- */
+.status-strip{ display:flex; flex-wrap:wrap; gap:18px; align-items:center; }
+.status-strip-item{ font-size:12px; color:#8DA9CE; display:flex; align-items:center; gap:6px; }
+.status-strip-label{ color:#5B7BA6; }
 
+.footer{ text-align:center; color:#4C6690; margin-top:36px; font-size:12px; }
+
+/* --------------------------------------------------------------------
+   FORM CONTROLS
+   -------------------------------------------------------------------- */
 .stTextInput > div > div > input{
-    background:#0B1325!important; color:white!important;
-    border:1px solid #2B5C9A!important; border-radius:12px!important; padding:10px!important;
+    background:#0B1325!important; color:#E7EEF9!important;
+    border:1px solid #2B5C9A!important; border-radius:8px!important; padding:9px 12px!important;
 }
-[data-testid="stFileUploader"]{ background:#0B1325!important; border:1px solid #2B5C9A!important; border-radius:14px!important; padding:10px!important; }
-[data-testid="stFileUploader"] *{ color:white!important; }
-[data-testid="stFileUploaderDropzone"]{ background:#0B1325!important; border:1px dashed #4EA8FF!important; border-radius:12px!important; }
-[data-testid="stFileUploaderDropzone"] *{ background:transparent!important; color:white!important; }
+[data-testid="stFileUploader"]{ background:#0B1325!important; border:1px solid #2B5C9A!important; border-radius:10px!important; padding:8px!important; }
+[data-testid="stFileUploader"] *{ color:#E7EEF9!important; }
+[data-testid="stFileUploaderDropzone"]{ background:#0B1325!important; border:1px dashed #4EA8FF!important; border-radius:8px!important; }
+[data-testid="stFileUploaderDropzone"] *{ background:transparent!important; color:#E7EEF9!important; }
 
-section[data-testid="stSidebar"]{ background:#050A18; border-right:1px solid #16365D; }
+[data-testid="stMetricValue"]{ color:#F2F6FC; }
+[data-testid="stMetricLabel"]{ color:#7C9BC7; }
+
+/* --------------------------------------------------------------------
+   RESPONSIVE
+   -------------------------------------------------------------------- */
+@media (max-width: 640px){
+    .block-container{ padding-left:0.9rem; padding-right:0.9rem; }
+    .main-title{ font-size:23px; }
+    .metric-value{ font-size:22px; }
+    .row-cell{ font-size:12px; }
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -91,7 +200,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# NAVIGATION
+# NAVIGATION — session-state-backed so in-page actions (e.g. "View →" on
+# Recent Investigations) can switch pages programmatically, in addition to
+# the sidebar. The widget itself is still a plain st.sidebar.radio.
 # ---------------------------------------------------------------------------
 
 PAGE_DASHBOARD = "Dashboard"
@@ -101,31 +212,203 @@ PAGE_FILES = "File Analysis"
 PAGE_MITRE = "MITRE ATT&CK"
 PAGE_HISTORY = "Investigation History"
 PAGE_SETTINGS = "Settings / Provider Status"
+PAGES = [PAGE_DASHBOARD, PAGE_IOC, PAGE_LOGS, PAGE_FILES, PAGE_MITRE, PAGE_HISTORY, PAGE_SETTINGS]
 
-page = st.sidebar.radio(
-    "Navigate",
-    [PAGE_DASHBOARD, PAGE_IOC, PAGE_LOGS, PAGE_FILES, PAGE_MITRE, PAGE_HISTORY, PAGE_SETTINGS],
-)
-
-
-def severity_badge(severity: str) -> str:
-    cls = {
-        "Critical": "status-bad", "High": "status-bad",
-        "Medium": "status-warn", "Low": "status-ok",
-    }.get(severity, "status-muted")
-    return f'<span class="{cls}">{severity}</span>'
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = PAGE_DASHBOARD
 
 
-def provider_status_badge(status: str) -> str:
-    if status == api_client.STATUS_OK or status == api_client.STATUS_NOT_FOUND:
-        return f'<span class="status-ok">Connected</span>'
-    if status == api_client.STATUS_NOT_CONFIGURED:
-        return f'<span class="status-muted">Not configured</span>'
-    if status == api_client.STATUS_INVALID_KEY:
-        return f'<span class="status-bad">Invalid key</span>'
-    if status == api_client.STATUS_RATE_LIMITED:
-        return f'<span class="status-warn">Rate limited</span>'
-    return f'<span class="status-bad">Error</span>'
+def go_to(target_page: str):
+    st.session_state.nav_page = target_page
+
+
+page = st.sidebar.radio("Navigate", PAGES, key="nav_page")
+
+st.markdown(f'<div class="eyebrow">{page}</div>', unsafe_allow_html=True)
+
+
+# ---------------------------------------------------------------------------
+# SHARED UI HELPERS (presentation only — no investigation logic here)
+# ---------------------------------------------------------------------------
+
+def section_header(title: str, subtitle: str = ""):
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="section-subtitle">{subtitle}</div>', unsafe_allow_html=True)
+
+
+def pill(text: str, kind: str) -> str:
+    return f'<span class="pill pill-{kind}">{text}</span>'
+
+
+_SEVERITY_KIND = {"Critical": "critical", "High": "critical", "Medium": "medium", "Low": "low"}
+
+
+def severity_pill(severity: str) -> str:
+    return pill(severity or "Unknown", _SEVERITY_KIND.get(severity, "muted"))
+
+
+_CLASS_KIND = {"Malicious": "critical", "Suspicious": "medium", "Clean": "low"}
+
+
+def classification_pill(classification: str) -> str:
+    return pill(classification or "Unknown", _CLASS_KIND.get(classification, "muted"))
+
+
+_PROVIDER_STATUS_KIND = {
+    api_client.STATUS_OK: ("ok", "Connected"),
+    api_client.STATUS_NOT_FOUND: ("ok", "Connected"),
+    api_client.STATUS_NOT_CONFIGURED: ("muted", "Not configured"),
+    api_client.STATUS_INVALID_KEY: ("bad", "Invalid key"),
+    api_client.STATUS_RATE_LIMITED: ("warn", "Rate limited"),
+}
+
+
+def provider_status_pill(status: str) -> str:
+    kind, label = _PROVIDER_STATUS_KIND.get(status, ("bad", "Error"))
+    return pill(label, kind)
+
+
+_RESULT_STATUS_KIND = {
+    ioc_analysis.RESULT_VALID: "ok",
+    ioc_analysis.RESULT_NO_DATA: "muted",
+    ioc_analysis.RESULT_INVALID_IOC: "bad",
+    ioc_analysis.RESULT_PROVIDERS_UNAVAILABLE: "warn",
+}
+
+
+def result_status_pill(status: str) -> str:
+    return pill(status, _RESULT_STATUS_KIND.get(status, "muted"))
+
+
+def cfg_pill(configured: bool, optional: bool = False) -> str:
+    if configured:
+        return pill("Connected", "ok")
+    return pill("Optional · Not configured", "muted") if optional else pill("Not configured", "warn")
+
+
+def format_timestamp(raw: str) -> str:
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).strftime("%b %d, %H:%M")
+    except (ValueError, AttributeError):
+        return raw or "—"
+
+
+def summarize_sources(raw_json) -> str:
+    if not raw_json:
+        return "—"
+    try:
+        data = json.loads(raw_json)
+    except (TypeError, ValueError):
+        return "—"
+    if not data:
+        return "—"
+    total = len(data)
+    ok = sum(1 for v in data.values() if v in (api_client.STATUS_OK, api_client.STATUS_NOT_FOUND))
+    return f"{ok}/{total}"
+
+
+# Palette used consistently across every chart, matching the existing
+# severity/risk colors already used for badges elsewhere in the app.
+CHART_COLOR_MAP = {
+    "Malicious": "#FF3C5A", "Suspicious": "#FFB020", "Clean": "#33D17A", "Unknown": "#5B7BA6",
+    "Critical": "#FF3C5A", "High": "#FF6B4A", "Medium": "#FFB020", "Low": "#33D17A",
+    "Brute Force": "#FF6B4A", "Malware Indicator": "#FF3C5A", "Port Scan": "#FFB020",
+    "Privilege Escalation": "#4EA8FF",
+}
+CHART_FALLBACK_COLORS = ["#4EA8FF", "#5B7BA6", "#33D17A", "#FFB020", "#FF6B4A", "#FF3C5A"]
+
+
+def render_bar_chart(df: pd.DataFrame, x_col: str, y_col: str, height: int = 240):
+    """Slim, enterprise-style bar chart using the ThreatScope palette."""
+    fig = px.bar(
+        df, x=x_col, y=y_col, color=x_col,
+        color_discrete_map=CHART_COLOR_MAP,
+        color_discrete_sequence=CHART_FALLBACK_COLORS,
+    )
+    fig.update_traces(
+        marker_line_width=0,
+        hovertemplate=f"<b>%{{x}}</b><br>{y_col}: %{{y}}<extra></extra>",
+    )
+    fig.update_layout(
+        showlegend=False,
+        height=height,
+        margin=dict(l=6, r=6, t=6, b=6),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        bargap=0.55,
+        font=dict(color="#B9CBE8", size=12, family="Segoe UI"),
+        xaxis=dict(showgrid=False, tickfont=dict(color="#9FC3F2", size=11), title=None,
+                   linecolor="#16365D", showline=True),
+        yaxis=dict(showgrid=True, gridcolor="rgba(22,54,93,.55)", zeroline=False,
+                   tickfont=dict(color="#9FC3F2", size=11), title=None),
+        hoverlabel=dict(bgcolor="#0B1325", font_color="#E7EEF9", bordercolor="#2B5C9A"),
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def render_donut_chart(df: pd.DataFrame, names_col: str, values_col: str, height: int = 240):
+    """Balanced donut chart with severity-consistent colors and outside legend."""
+    fig = px.pie(
+        df, names=names_col, values=values_col, hole=0.62, color=names_col,
+        color_discrete_map=CHART_COLOR_MAP,
+        color_discrete_sequence=CHART_FALLBACK_COLORS,
+    )
+    fig.update_traces(
+        textinfo="percent",
+        textfont=dict(color="#081122", size=12, family="Segoe UI"),
+        marker=dict(line=dict(color="#081122", width=2)),
+        hovertemplate=f"<b>%{{label}}</b><br>%{{value}} (%{{percent}})<extra></extra>",
+    )
+    fig.update_layout(
+        height=height,
+        margin=dict(l=6, r=6, t=6, b=6),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=-0.16, x=0.5, xanchor="center",
+                    font=dict(color="#B9CBE8", size=11)),
+        hoverlabel=dict(bgcolor="#0B1325", font_color="#E7EEF9", bordercolor="#2B5C9A"),
+    )
+    st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def render_recent_investigations(rows):
+    if not rows:
+        st.info("No investigations recorded yet. Run an IOC, log, or file analysis to populate this list.")
+        return
+
+    col_spec = [1.1, 0.9, 2.6, 1.15, 1.0, 0.9, 0.9]
+    headers = ["Time", "Kind", "Investigation", "Classification", "Severity", "Sources", ""]
+    header_cols = st.columns(col_spec)
+    for col, label in zip(header_cols, headers):
+        col.markdown(f'<div class="row-header">{label}</div>', unsafe_allow_html=True)
+
+    for r in rows:
+        with st.container(key=f"row-{r['id']}", border=False):
+            c1, c2, c3, c4, c5, c6, c7 = st.columns(col_spec)
+            c1.markdown(f'<div class="row-cell row-cell-muted">{format_timestamp(r["timestamp"])}</div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="row-cell row-cell-muted">{r["kind"]}</div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="row-cell row-cell-strong">{r["ioc_value"] or "(upload)"}</div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="row-cell">{classification_pill(r["classification"])}</div>', unsafe_allow_html=True)
+            c5.markdown(f'<div class="row-cell">{severity_pill(r["severity"])}</div>', unsafe_allow_html=True)
+            c6.markdown(f'<div class="row-cell row-cell-muted">{summarize_sources(r["provider_summary"])}</div>', unsafe_allow_html=True)
+            c7.button("View →", key=f"view_{r['id']}", on_click=go_to, args=(PAGE_HISTORY,), width="stretch")
+
+
+def render_provider_status_strip():
+    yara_status, _ = yara_engine.engine_status()
+    items = [
+        ("VirusTotal", cfg_pill(PROVIDERS.virustotal_configured)),
+        ("AbuseIPDB", cfg_pill(PROVIDERS.abuseipdb_configured)),
+        ("AlienVault OTX", cfg_pill(PROVIDERS.otx_configured, optional=True)),
+        ("YARA engine", pill("Ready", "ok") if yara_status == yara_engine.STATUS_READY else pill("Unavailable", "muted")),
+    ]
+    parts = "".join(
+        f'<div class="status-strip-item"><span class="status-strip-label">{label}</span> {badge}</div>'
+        for label, badge in items
+    )
+    st.markdown(f'<div class="status-strip">{parts}</div>', unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +418,7 @@ def provider_status_badge(status: str) -> str:
 if page == PAGE_DASHBOARD:
     counts = db.fetch_dashboard_counts()
 
+    section_header("Key SOC Metrics")
     c1, c2, c3, c4 = st.columns(4)
     cards = [
         ("Total Investigations", counts["total"]),
@@ -150,37 +434,26 @@ if page == PAGE_DASHBOARD:
                 unsafe_allow_html=True,
             )
 
-    st.markdown("&nbsp;", unsafe_allow_html=True)
-
     by_class = counts["by_classification"]
     if by_class:
+        section_header("Primary Analytics", "Investigation outcomes recorded so far, by classification.")
         df = pd.DataFrame({"Classification": list(by_class.keys()), "Count": list(by_class.values())})
-        left, right = st.columns([2, 1])
+        left, right = st.columns([1.6, 1])
         with left:
-            fig = px.bar(df, x="Classification", y="Count", template="plotly_dark")
-            fig.update_layout(paper_bgcolor="#081122", plot_bgcolor="#081122", font_color="white")
-            st.plotly_chart(fig, use_container_width=True)
+            with st.container(key="panel-bar", border=True):
+                render_bar_chart(df, "Classification", "Count")
         with right:
-            pie = px.pie(df, names="Classification", values="Count", hole=.55, template="plotly_dark")
-            pie.update_layout(paper_bgcolor="#081122", plot_bgcolor="#081122", font=dict(color="white"))
-            st.plotly_chart(pie, use_container_width=True)
+            with st.container(key="panel-donut", border=True):
+                render_donut_chart(df, "Classification", "Count")
     else:
+        section_header("Primary Analytics")
         st.info("No investigations recorded yet. Run an IOC, log, or file analysis to populate the dashboard.")
 
-    st.markdown('<div class="panel"><h3>Recent Investigations</h3>', unsafe_allow_html=True)
-    rows = db.fetch_recent(limit=10)
-    if rows:
-        for r in rows:
-            st.markdown(
-                f"`{r['timestamp']}` — **{r['kind']}** — "
-                f"{r['ioc_value'] or '(file/log upload)'} — "
-                f"{r['classification'] or '—'} / {severity_badge(r['severity'] or 'Unknown')} "
-                f"— *{r['result_status']}*",
-                unsafe_allow_html=True,
-            )
-    else:
-        st.write("Nothing recorded yet.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    section_header("Recent Investigations", "The 10 most recently recorded investigations, newest first.")
+    render_recent_investigations(db.fetch_recent(limit=10))
+
+    section_header("Supporting Threat Intelligence", "Live provider and engine status.")
+    render_provider_status_strip()
 
 
 # ---------------------------------------------------------------------------
@@ -188,57 +461,52 @@ if page == PAGE_DASHBOARD:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_IOC:
-    st.markdown("## 🔎 IOC Investigation")
-    st.caption("Supports IPv4 addresses, domains, http(s) URLs, and MD5/SHA1/SHA256 file hashes.")
+    section_header("🔎 IOC Investigation", "Supports IPv4 addresses, domains, http(s) URLs, and MD5/SHA1/SHA256 file hashes.")
 
-    search_value = st.text_input("Search IP / Domain / URL / File Hash")
+    search_value = st.text_input("Search IP / Domain / URL / File Hash", label_visibility="collapsed",
+                                  placeholder="Search IP / Domain / URL / File Hash")
 
     if search_value:
         with st.spinner("Querying threat-intelligence providers..."):
             result = ioc_analysis.investigate(search_value, PROVIDERS)
 
-        status_class = {
-            ioc_analysis.RESULT_VALID: "status-ok",
-            ioc_analysis.RESULT_NO_DATA: "status-muted",
-            ioc_analysis.RESULT_INVALID_IOC: "status-bad",
-            ioc_analysis.RESULT_PROVIDERS_UNAVAILABLE: "status-warn",
-        }.get(result.result_status, "status-muted")
-
         st.markdown(
             f"**IOC Type:** {result.ioc_type} &nbsp;&nbsp; "
-            f"**Status:** <span class='{status_class}'>{result.result_status}</span>",
+            f"**Status:** {result_status_pill(result.result_status)}",
             unsafe_allow_html=True,
         )
 
         if result.result_status == ioc_analysis.RESULT_INVALID_IOC:
             st.error(result.explanation)
         else:
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(
-                    f"""**Classification:** {result.classification}
-**Severity:** {result.severity}
-**Confidence:** {result.confidence}
-**Country:** {result.country or 'Unknown'}"""
-                )
-            with col2:
-                st.markdown(
-                    f"""**VirusTotal malicious engines:** {result.vt_malicious_count if result.vt_malicious_count is not None else '—'}
+            with st.container(key="panel-ioc-result", border=True):
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.markdown(
+                        f"**Classification:** {classification_pill(result.classification)}  \n"
+                        f"**Severity:** {severity_pill(result.severity)}  \n"
+                        f"**Confidence:** {result.confidence}  \n"
+                        f"**Country:** {result.country or 'Unknown'}",
+                        unsafe_allow_html=True,
+                    )
+                with col2:
+                    st.markdown(
+                        f"""**VirusTotal malicious engines:** {result.vt_malicious_count if result.vt_malicious_count is not None else '—'}
 **AbuseIPDB confidence score:** {result.abuse_score if result.abuse_score is not None else '—'}"""
-                )
+                    )
 
-            if result.explanation:
-                st.info(result.explanation)
+                if result.explanation:
+                    st.info(result.explanation)
 
-            st.markdown("**Provider status**")
-            for provider, status in result.provider_statuses.items():
-                msg = result.provider_messages.get(provider, "")
-                st.markdown(f"- {provider}: {provider_status_badge(status)} — {msg}", unsafe_allow_html=True)
+                st.markdown("**Provider status**")
+                for provider, status in result.provider_statuses.items():
+                    msg = result.provider_messages.get(provider, "")
+                    st.markdown(f"- {provider}: {provider_status_pill(status)} — {msg}", unsafe_allow_html=True)
 
-            if result.mitre:
-                st.markdown("**MITRE ATT&CK mapping**")
-                for t in result.mitre:
-                    st.markdown(f"- `{t.technique_id}` **{t.technique_name}** ({t.tactic}) — {t.explanation}")
+                if result.mitre:
+                    st.markdown("**MITRE ATT&CK mapping**")
+                    for t in result.mitre:
+                        st.markdown(f"- `{t.technique_id}` **{t.technique_name}** ({t.tactic}) — {t.explanation}")
 
         db.record_investigation(
             kind="IOC",
@@ -257,10 +525,10 @@ elif page == PAGE_IOC:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_LOGS:
-    st.markdown("## 📂 Log Analysis")
-    st.caption("Supports .txt, .log, .csv, and .json (array or JSON-lines).")
+    section_header("📂 Log Analysis", "Supports .txt, .log, .csv, and .json (array or JSON-lines).")
 
-    uploaded_file = st.file_uploader("Upload Threat Logs", type=["txt", "csv", "log", "json"])
+    uploaded_file = st.file_uploader("Upload Threat Logs", type=["txt", "csv", "log", "json"],
+                                      label_visibility="collapsed")
 
     if uploaded_file:
         raw = uploaded_file.read()
@@ -279,9 +547,8 @@ elif page == PAGE_LOGS:
                 cat_df = pd.DataFrame(
                     {"Category": list(result.category_counts.keys()), "Count": list(result.category_counts.values())}
                 )
-                fig = px.bar(cat_df, x="Category", y="Count", template="plotly_dark")
-                fig.update_layout(paper_bgcolor="#081122", plot_bgcolor="#081122", font_color="white")
-                st.plotly_chart(fig, use_container_width=True)
+                with st.container(key="panel-log-categories", border=True):
+                    render_bar_chart(cat_df, "Category", "Count", height=220)
 
                 st.markdown("**Findings**")
                 for finding in result.findings[:200]:
@@ -289,7 +556,7 @@ elif page == PAGE_LOGS:
                     mitre_txt = ", ".join(f"{t.technique_id} {t.technique_name}" for t in techniques) or "No defensible MITRE mapping"
                     st.markdown(
                         f'<div class="alert-box">Line {finding.line_number} '
-                        f'[{severity_badge(finding.severity)}] <b>{finding.category}</b> '
+                        f'{severity_pill(finding.severity)} <b>{finding.category}</b> '
                         f'{("at " + finding.timestamp) if finding.timestamp else ""}'
                         f'<br><code>{finding.raw_line}</code>'
                         f'<br><i>MITRE: {mitre_txt}</i></div>',
@@ -322,43 +589,43 @@ elif page == PAGE_LOGS:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_FILES:
-    st.markdown("## 🧬 File Analysis")
-    st.caption("Local hashing + heuristics, optional YARA matching, optional VirusTotal hash reputation.")
+    section_header("🧬 File Analysis", "Local hashing + heuristics, optional YARA matching, optional VirusTotal hash reputation.")
 
-    uploaded = st.file_uploader("Upload a file to analyze")
+    uploaded = st.file_uploader("Upload a file to analyze", label_visibility="collapsed")
 
     if uploaded:
         file_bytes = uploaded.read()
         result = malware_scan.analyze_file(uploaded.name, file_bytes, PROVIDERS)
 
-        status_class = {
-            malware_scan.STATUS_MALICIOUS: "status-bad",
-            malware_scan.STATUS_SUSPICIOUS: "status-warn",
-            malware_scan.STATUS_LOW_RISK: "status-ok",
-            malware_scan.STATUS_UNKNOWN: "status-muted",
-            malware_scan.STATUS_FAILED: "status-bad",
-        }.get(result.status, "status-muted")
+        status_kind = {
+            malware_scan.STATUS_MALICIOUS: "critical",
+            malware_scan.STATUS_SUSPICIOUS: "medium",
+            malware_scan.STATUS_LOW_RISK: "low",
+            malware_scan.STATUS_UNKNOWN: "muted",
+            malware_scan.STATUS_FAILED: "bad",
+        }.get(result.status, "muted")
 
-        st.markdown(f"**Status:** <span class='{status_class}'>{result.status}</span>", unsafe_allow_html=True)
-        st.markdown(
-            f"""**File:** {result.filename}
+        with st.container(key="panel-file-result", border=True):
+            st.markdown(f"**Status:** {pill(result.status, status_kind)}", unsafe_allow_html=True)
+            st.markdown(
+                f"""**File:** {result.filename}
 **Size:** {result.size_bytes} bytes
 **SHA-256:** `{result.sha256}`
 **MD5:** `{result.md5}`"""
-        )
+            )
 
-        if result.local_indicators:
-            st.markdown("**Local indicators**")
-            for ind in result.local_indicators:
-                st.markdown(f"- {ind}")
+            if result.local_indicators:
+                st.markdown("**Local indicators**")
+                for ind in result.local_indicators:
+                    st.markdown(f"- {ind}")
 
-        st.markdown(f"**YARA engine:** {result.yara_status}")
-        if result.vt_malicious_count is not None:
-            st.markdown(f"**VirusTotal:** {result.vt_malicious_count}/{result.vt_total_engines} engines flagged this hash malicious.")
-        else:
-            st.markdown(f"**VirusTotal:** {provider_status_badge(result.vt_status)}", unsafe_allow_html=True)
+            st.markdown(f"**YARA engine:** {result.yara_status}")
+            if result.vt_malicious_count is not None:
+                st.markdown(f"**VirusTotal:** {result.vt_malicious_count}/{result.vt_total_engines} engines flagged this hash malicious.")
+            else:
+                st.markdown(f"**VirusTotal:** {provider_status_pill(result.vt_status)}", unsafe_allow_html=True)
 
-        st.caption(result.notes)
+            st.caption(result.notes)
 
         db.record_investigation(
             kind="FILE",
@@ -376,10 +643,10 @@ elif page == PAGE_FILES:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_MITRE:
-    st.markdown("## 🗺 MITRE ATT&CK Mapping")
-    st.caption(
+    section_header(
+        "🗺 MITRE ATT&CK Mapping",
         "ThreatScope maps a finding to a technique only where there is a defensible relationship. "
-        "This is a reference table of every mapping currently defined — not every finding will match one."
+        "This is a reference table of every mapping currently defined — not every finding will match one.",
     )
 
     rows = []
@@ -392,7 +659,7 @@ elif page == PAGE_MITRE:
             rows.append({"Source": f"IOC: {ioc_type} ({classification})", "Technique": f"{t.technique_id} {t.technique_name}",
                          "Tactic": t.tactic, "Rationale": t.explanation})
 
-    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
 
 
 # ---------------------------------------------------------------------------
@@ -400,8 +667,7 @@ elif page == PAGE_MITRE:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_HISTORY:
-    st.markdown("## 🕘 Investigation History")
-    st.caption("Persisted in a local SQLite database — survives a page refresh, not reset per session.")
+    section_header("🕘 Investigation History", "Persisted in a local SQLite database — survives a page refresh, not reset per session.")
 
     rows = db.fetch_recent(limit=200)
     if not rows:
@@ -410,7 +676,7 @@ elif page == PAGE_HISTORY:
         hist_df = pd.DataFrame([dict(r) for r in rows])
         st.dataframe(
             hist_df[["timestamp", "kind", "ioc_value", "ioc_type", "classification", "severity", "result_status"]],
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
 
 
@@ -419,23 +685,17 @@ elif page == PAGE_HISTORY:
 # ---------------------------------------------------------------------------
 
 elif page == PAGE_SETTINGS:
-    st.markdown("## ⚙️ Settings / Provider Status")
-    st.caption("Configuration status only — actual key values are never displayed.")
+    section_header("⚙️ Settings / Provider Status", "Configuration status only — actual key values are never displayed.")
 
-    def cfg_badge(configured: bool, optional: bool = False) -> str:
-        if configured:
-            return '<span class="status-ok">Connected</span>'
-        return '<span class="status-muted">Optional, not configured</span>' if optional else '<span class="status-warn">Not configured</span>'
-
-    st.markdown(f"**VirusTotal:** {cfg_badge(PROVIDERS.virustotal_configured)}", unsafe_allow_html=True)
-    st.markdown(f"**AbuseIPDB:** {cfg_badge(PROVIDERS.abuseipdb_configured)}", unsafe_allow_html=True)
-    st.markdown(f"**AlienVault OTX:** {cfg_badge(PROVIDERS.otx_configured, optional=True)}", unsafe_allow_html=True)
+    st.markdown(f"**VirusTotal:** {cfg_pill(PROVIDERS.virustotal_configured)}", unsafe_allow_html=True)
+    st.markdown(f"**AbuseIPDB:** {cfg_pill(PROVIDERS.abuseipdb_configured)}", unsafe_allow_html=True)
+    st.markdown(f"**AlienVault OTX:** {cfg_pill(PROVIDERS.otx_configured, optional=True)}", unsafe_allow_html=True)
 
     yara_status, yara_message = yara_engine.engine_status()
-    yara_badge = '<span class="status-ok">Ready</span>' if yara_status == yara_engine.STATUS_READY else '<span class="status-muted">Unavailable</span>'
+    yara_badge = pill("Ready", "ok") if yara_status == yara_engine.STATUS_READY else pill("Unavailable", "muted")
     st.markdown(f"**YARA engine:** {yara_badge} — {yara_message}", unsafe_allow_html=True)
 
-    st.markdown("**Machine learning component:** <span class='status-muted'>Not integrated</span>", unsafe_allow_html=True)
+    st.markdown(f"**Machine learning component:** {pill('Not integrated', 'muted')}", unsafe_allow_html=True)
     st.caption(
         "models/model.pkl expects 78 CICFlowMeter network-flow features extracted from raw packet "
         "captures, which nothing in this app produces from an IOC, log, or file upload. See "

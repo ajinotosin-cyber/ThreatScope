@@ -1,0 +1,11 @@
+# Native Streamlit dark theme, matched to ThreatScope's existing palette.
+# This is what actually fixes contrast on Streamlit's own built-in widgets
+# (captions, dataframes, buttons, alerts, sidebar nav, metrics) -- CSS
+# overrides alone can't reach all of them reliably.
+[theme]
+base = "dark"
+primaryColor = "#4EA8FF"
+backgroundColor = "#050A18"
+secondaryBackgroundColor = "#0B1325"
+textColor = "#E7EEF9"
+font = "sans serif"
