@@ -1,0 +1,23 @@
+# Secrets — never commit real credentials
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Local persistence
+data/
+*.db
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

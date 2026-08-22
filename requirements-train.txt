@@ -1,0 +1,7 @@
+# Dependencies ONLY for the standalone, offline train_model.py script.
+# Not required to run the Streamlit app itself -- see train_model.py's
+# module docstring for why the resulting model isn't integrated into it.
+pandas
+numpy
+scikit-learn
+joblib
